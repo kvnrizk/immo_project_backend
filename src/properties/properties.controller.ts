@@ -1,0 +1,159 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+  UseInterceptors,
+  UploadedFiles,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiConsumes,
+} from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { PropertiesService } from './properties.service';
+import { CreatePropertyDto } from './dto/create-property.dto';
+import { UpdatePropertyDto } from './dto/update-property.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+@ApiTags('properties')
+@Controller('properties')
+export class PropertiesController {
+  constructor(private readonly propertiesService: PropertiesService) {}
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new property' })
+  @ApiResponse({ status: 201, description: 'Property created successfully' })
+  create(@Body() createPropertyDto: CreatePropertyDto, @Request() req) {
+    return this.propertiesService.create(createPropertyDto, req.user.id);
+  }
+
+  @Post(':id/images')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(
+    FilesInterceptor('images', 10, {
+      storage: diskStorage({
+        destination: './public/properties',
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `property-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return callback(new Error('Only image files are allowed!'), false);
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload images for a property' })
+  @ApiResponse({ status: 200, description: 'Images uploaded successfully' })
+  async uploadImages(
+    @Param('id') id: string,
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Request() req,
+  ) {
+    const imageUrls = files.map(
+      (file) => `/public/properties/${file.filename}`,
+    );
+    return this.propertiesService.addImages(id, imageUrls, req.user.id);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Get all properties' })
+  @ApiResponse({ status: 200, description: 'Return all properties' })
+  findAll(@Query('type') type?: string) {
+    return this.propertiesService.findAll(type);
+  }
+
+  @Get('my-properties')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user properties' })
+  @ApiResponse({ status: 200, description: 'Return user properties' })
+  findMyProperties(@Request() req) {
+    return this.propertiesService.findByUser(req.user.id);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a property by id' })
+  @ApiResponse({ status: 200, description: 'Return the property' })
+  @ApiResponse({ status: 404, description: 'Property not found' })
+  findOne(@Param('id') id: string) {
+    return this.propertiesService.findOne(id);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a property' })
+  @ApiResponse({ status: 200, description: 'Property updated successfully' })
+  update(
+    @Param('id') id: string,
+    @Body() updatePropertyDto: UpdatePropertyDto,
+    @Request() req,
+  ) {
+    return this.propertiesService.update(id, updatePropertyDto, req.user.id);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a property' })
+  @ApiResponse({ status: 200, description: 'Property deleted successfully' })
+  remove(@Param('id') id: string, @Request() req) {
+    return this.propertiesService.remove(id, req.user.id);
+  }
+
+  @Get(':id/unavailable-dates')
+  @ApiOperation({ summary: 'Get unavailable dates for a property' })
+  @ApiResponse({ status: 200, description: 'Return unavailable dates' })
+  getUnavailableDates(@Param('id') id: string) {
+    return this.propertiesService.getUnavailableDates(id);
+  }
+
+  @Post(':id/unavailable-dates')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add unavailable date to a property' })
+  @ApiResponse({ status: 200, description: 'Unavailable date added successfully' })
+  addUnavailableDate(
+    @Param('id') id: string,
+    @Body() body: { unavailable_date: string; reason?: string },
+  ) {
+    return this.propertiesService.addUnavailableDate(id, body.unavailable_date, body.reason);
+  }
+
+  @Delete(':id/unavailable-dates')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove unavailable date from a property' })
+  @ApiResponse({ status: 200, description: 'Unavailable date removed successfully' })
+  removeUnavailableDate(
+    @Param('id') id: string,
+    @Body() body: { unavailable_date: string },
+  ) {
+    return this.propertiesService.removeUnavailableDate(id, body.unavailable_date);
+  }
+}
