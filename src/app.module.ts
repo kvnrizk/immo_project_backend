@@ -30,7 +30,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
             url: databaseUrl,
             entities: [__dirname + '/**/*.entity{.ts,.js}'],
             autoLoadEntities: true,
-            synchronize: configService.get('NODE_ENV') !== 'production',
+            synchronize: true, // TODO: Change to false after initial deployment
             logging: configService.get('NODE_ENV') === 'development',
             ssl: {
               rejectUnauthorized: false,
@@ -48,7 +48,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
           database: configService.get('DATABASE_NAME'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           autoLoadEntities: true,
-          synchronize: configService.get('NODE_ENV') !== 'production',
+          synchronize: true, // TODO: Change to false after initial deployment
           logging: configService.get('NODE_ENV') === 'development',
         };
       },
