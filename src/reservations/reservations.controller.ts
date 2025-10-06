@@ -22,12 +22,40 @@ import { Reservation } from './entities/reservation.entity';
 
 @ApiTags('reservations')
 @Controller('reservations')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
+  // Public endpoints (no auth required)
+  @Post('public')
+  @ApiOperation({ summary: 'Create a new reservation from public website (no auth)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Reservation created successfully',
+    type: Reservation,
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid data or past meeting date' })
+  createPublic(@Body() createReservationDto: CreateReservationDto) {
+    return this.reservationsService.createPublic(createReservationDto);
+  }
+
+  @Get('public/available-slots/:propertyId/:date')
+  @ApiOperation({ summary: 'Get available time slots (public, no auth)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of available time slots',
+    type: [String],
+  })
+  getAvailableSlotsPublic(
+    @Param('propertyId') propertyId: string,
+    @Param('date') date: string,
+  ) {
+    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
+  }
+
+  // Admin endpoints (auth required)
   @Post()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new reservation for property visit' })
   @ApiResponse({
     status: 201,
@@ -41,6 +69,8 @@ export class ReservationsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all reservations with optional filters' })
   @ApiResponse({
     status: 200,
@@ -53,6 +83,8 @@ export class ReservationsController {
   }
 
   @Get('statistics')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get reservation statistics' })
   @ApiResponse({
     status: 200,
@@ -63,7 +95,26 @@ export class ReservationsController {
     return this.reservationsService.getStatistics(req.user.id);
   }
 
+  @Get('available-slots/:propertyId/:date')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get available time slots for a property on a specific date' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of available time slots',
+    type: [String],
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getAvailableSlots(
+    @Param('propertyId') propertyId: string,
+    @Param('date') date: string,
+  ) {
+    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
+  }
+
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a single reservation by ID' })
   @ApiResponse({
     status: 200,
@@ -77,6 +128,8 @@ export class ReservationsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a reservation' })
   @ApiResponse({
     status: 200,
@@ -94,22 +147,9 @@ export class ReservationsController {
     return this.reservationsService.update(id, updateReservationDto, req.user.id);
   }
 
-  @Get('available-slots/:propertyId/:date')
-  @ApiOperation({ summary: 'Get available time slots for a property on a specific date' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of available time slots',
-    type: [String],
-  })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  getAvailableSlots(
-    @Param('propertyId') propertyId: string,
-    @Param('date') date: string,
-  ) {
-    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
-  }
-
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a reservation' })
   @ApiResponse({ status: 204, description: 'Reservation deleted successfully' })

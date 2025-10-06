@@ -10,6 +10,7 @@ import { PropertiesModule } from './properties/properties.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AvailabilityModule } from './availability/availability.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     ReservationsModule,
     ContactsModule,
     AnalyticsModule,
+    AvailabilityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

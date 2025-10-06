@@ -6,6 +6,7 @@ import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
 import { FilterReservationDto } from './dto/filter-reservation.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { AvailabilityService } from '../availability/availability.service';
 
 @Injectable()
 export class ReservationsService {
@@ -17,6 +18,7 @@ export class ReservationsService {
   constructor(
     @InjectRepository(Reservation)
     private reservationsRepository: Repository<Reservation>,
+    private availabilityService: AvailabilityService,
   ) {}
 
   async create(
@@ -41,6 +43,34 @@ export class ReservationsService {
       meetingDate,
       userId,
       status: createReservationDto.status || ReservationStatus.EN_ATTENTE,
+    });
+
+    return await this.reservationsRepository.save(reservation);
+  }
+
+  // Public endpoint for creating reservations without authentication
+  async createPublic(
+    createReservationDto: CreateReservationDto,
+  ): Promise<Reservation> {
+    const meetingDate = new Date(createReservationDto.meetingDate);
+    const now = new Date();
+
+    if (meetingDate <= now) {
+      throw new BadRequestException('Meeting date must be in the future');
+    }
+
+    // Check time slot availability
+    await this.checkTimeSlotAvailability(
+      createReservationDto.propertyId,
+      meetingDate,
+    );
+
+    // For public reservations, use a default system user ID or leave userId empty
+    const reservation = this.reservationsRepository.create({
+      ...createReservationDto,
+      meetingDate,
+      userId: 'public', // Mark as public reservation
+      status: ReservationStatus.EN_ATTENTE,
     });
 
     return await this.reservationsRepository.save(reservation);
