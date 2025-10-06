@@ -143,4 +143,15 @@ export class PropertiesService {
 
     return await this.propertyRepository.save(property);
   }
+
+  async toggleActive(id: string, userId: string): Promise<Property> {
+    const property = await this.findOne(id);
+
+    if (property.userId !== userId) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    property.isActive = !property.isActive;
+    return await this.propertyRepository.save(property);
+  }
 }

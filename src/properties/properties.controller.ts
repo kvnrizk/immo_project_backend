@@ -155,4 +155,13 @@ export class PropertiesController {
   ) {
     return this.propertiesService.removeUnavailableDate(id, body.unavailable_date);
   }
+
+  @Patch(':id/toggle-active')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Toggle property active status' })
+  @ApiResponse({ status: 200, description: 'Property status toggled successfully' })
+  toggleActive(@Param('id') id: string, @Request() req) {
+    return this.propertiesService.toggleActive(id, req.user.id);
+  }
 }
