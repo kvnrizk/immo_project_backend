@@ -205,11 +205,10 @@ export class ReservationsService {
   async getAvailableTimeSlots(propertyId: number, date: string, userId?: string): Promise<string[]> {
     const targetDate = new Date(date);
 
-    // If userId is not provided, use 'public' (for public API calls)
-    const checkUserId = userId || 'public';
-
-    // Get all unavailable dates for this user
-    const unavailableDates = await this.availabilityService.findAllUnavailableDates(checkUserId);
+    // Get all unavailable dates (for public API, fetch all; for admin, fetch by userId)
+    const unavailableDates = userId === 'public'
+      ? await this.availabilityService.findAllUnavailableDates() // Fetch ALL unavailable dates for public
+      : await this.availabilityService.findAllUnavailableDates(userId); // Fetch user-specific for admin
 
     // Check if this specific date is blocked
     const dateStr = targetDate.toISOString().split('T')[0];

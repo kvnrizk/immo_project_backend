@@ -73,9 +73,10 @@ export class AvailabilityService {
     return await this.unavailableDateRepository.save(unavailableDate);
   }
 
-  async findAllUnavailableDates(userId: string): Promise<UnavailableDate[]> {
+  async findAllUnavailableDates(userId?: string): Promise<UnavailableDate[]> {
+    const where = userId ? { userId } : {};
     return await this.unavailableDateRepository.find({
-      where: { userId },
+      where,
       order: { date: 'ASC' },
     });
   }
