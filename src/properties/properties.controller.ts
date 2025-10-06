@@ -82,8 +82,10 @@ export class PropertiesController {
   @Get()
   @ApiOperation({ summary: 'Get all properties' })
   @ApiResponse({ status: 200, description: 'Return all properties' })
-  findAll(@Query('type') type?: string) {
-    return this.propertiesService.findAll(type);
+  findAll(@Query('type') type?: string, @Query('includeInactive') includeInactive?: string) {
+    // Convert string query param to boolean, default to false
+    const showInactive = includeInactive === 'true';
+    return this.propertiesService.findAll(type, showInactive);
   }
 
   @Get('my-properties')
@@ -163,5 +165,31 @@ export class PropertiesController {
   @ApiResponse({ status: 200, description: 'Property status toggled successfully' })
   toggleActive(@Param('id') id: string, @Request() req) {
     return this.propertiesService.toggleActive(id, req.user.id);
+  }
+
+  @Delete(':id/images')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete an image from a property' })
+  @ApiResponse({ status: 200, description: 'Image deleted successfully' })
+  deleteImage(
+    @Param('id') id: string,
+    @Body() body: { imageUrl: string },
+    @Request() req,
+  ) {
+    return this.propertiesService.deleteImage(id, body.imageUrl, req.user.id);
+  }
+
+  @Patch(':id/reorder-images')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reorder images for a property' })
+  @ApiResponse({ status: 200, description: 'Images reordered successfully' })
+  reorderImages(
+    @Param('id') id: string,
+    @Body() body: { imageUrls: string[] },
+    @Request() req,
+  ) {
+    return this.propertiesService.reorderImages(id, body.imageUrls, req.user.id);
   }
 }

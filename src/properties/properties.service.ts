@@ -23,8 +23,18 @@ export class PropertiesService {
     return await this.propertyRepository.save(property);
   }
 
-  async findAll(type?: string): Promise<Property[]> {
-    const where = type ? { type } : {};
+  async findAll(type?: string, includeInactive = false): Promise<Property[]> {
+    const where: any = {};
+
+    if (type) {
+      where.type = type;
+    }
+
+    // Only show active properties by default (for public frontend)
+    if (!includeInactive) {
+      where.isActive = true;
+    }
+
     return await this.propertyRepository.find({
       where,
       relations: ['user'],
@@ -93,6 +103,41 @@ export class PropertiesService {
     }
 
     property.image = imageUrl;
+    return await this.propertyRepository.save(property);
+  }
+
+  async deleteImage(id: string, imageUrl: string, userId: string): Promise<Property> {
+    const property = await this.findOne(id);
+
+    if (property.userId !== userId) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    if (property.images) {
+      property.images = property.images.filter(img => img !== imageUrl);
+    }
+
+    // If the deleted image was the main image, set a new main image
+    if (property.image === imageUrl) {
+      property.image = property.images && property.images.length > 0 ? property.images[0] : null;
+    }
+
+    return await this.propertyRepository.save(property);
+  }
+
+  async reorderImages(id: string, imageUrls: string[], userId: string): Promise<Property> {
+    const property = await this.findOne(id);
+
+    if (property.userId !== userId) {
+      throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    property.images = imageUrls;
+    // Set the first image as the main image
+    if (imageUrls.length > 0) {
+      property.image = imageUrls[0];
+    }
+
     return await this.propertyRepository.save(property);
   }
 
