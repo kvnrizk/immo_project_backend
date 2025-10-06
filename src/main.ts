@@ -14,8 +14,12 @@ async function bootstrap() {
   app.use('/public', express.static('public'));
 
   // Enable CORS
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',')
+    : ['http://localhost:8080'];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+    origin: allowedOrigins,
     credentials: true,
   });
 
