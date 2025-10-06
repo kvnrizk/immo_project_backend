@@ -182,6 +182,33 @@ export class ReservationsService {
       throw new BadRequestException(`Invalid time slot. Available slots: ${this.TIME_SLOTS.join(", ")}`);
     }
 
+    // Check if the time slot is blocked by admin
+    const unavailableDates = await this.availabilityService.findAllUnavailableDates();
+    const dateStr = meetingDate.toISOString().split('T')[0];
+
+    // Check if entire day is blocked
+    const isDayBlocked = unavailableDates.some(blocked => {
+      const blockedDateStr = new Date(blocked.date).toISOString().split('T')[0];
+      return blockedDateStr === dateStr && !blocked.reason?.includes('Bloqué:');
+    });
+
+    if (isDayBlocked) {
+      throw new BadRequestException('This date is not available');
+    }
+
+    // Check if specific time slot is blocked
+    const isSlotBlocked = unavailableDates.some(blocked => {
+      const blockedDateStr = new Date(blocked.date).toISOString().split('T')[0];
+      if (blockedDateStr === dateStr && blocked.reason?.includes(`Bloqué: ${timeString}`)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (isSlotBlocked) {
+      throw new BadRequestException('This time slot is not available');
+    }
+
     // Check for existing reservations at the same time
     const existingQuery = this.reservationsRepository.createQueryBuilder('reservation')
       .where('reservation.propertyId = :propertyId', { propertyId })
