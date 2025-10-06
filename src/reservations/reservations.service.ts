@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThan } from 'typeorm';
+import { Repository, Between, LessThan, In } from 'typeorm';
 import { Reservation, ReservationStatus } from './entities/reservation.entity';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { UpdateReservationDto } from './dto/update-reservation.dto';
@@ -9,6 +9,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ReservationsService {
+  private readonly TIME_SLOTS = [
+    '09:00', '10:00', '11:00', '12:00',
+    '14:00', '15:00', '16:00', '17:00',
+  ];
+
   constructor(
     @InjectRepository(Reservation)
     private reservationsRepository: Repository<Reservation>,
@@ -24,6 +29,12 @@ export class ReservationsService {
     if (meetingDate <= now) {
       throw new BadRequestException('Meeting date must be in the future');
     }
+
+    // Check time slot availability
+    await this.checkTimeSlotAvailability(
+      createReservationDto.propertyId,
+      meetingDate,
+    );
 
     const reservation = this.reservationsRepository.create({
       ...createReservationDto,
@@ -101,6 +112,14 @@ export class ReservationsService {
 
     if (updateReservationDto.meetingDate) {
       const meetingDate = new Date(updateReservationDto.meetingDate);
+
+      // Check time slot availability when changing meeting date
+      await this.checkTimeSlotAvailability(
+        updateReservationDto.propertyId || reservation.propertyId,
+        meetingDate,
+        id,
+      );
+
       updateReservationDto.meetingDate = meetingDate.toISOString();
     }
 
@@ -112,6 +131,80 @@ export class ReservationsService {
   async remove(id: string, userId?: string): Promise<void> {
     const reservation = await this.findOne(id, userId);
     await this.reservationsRepository.remove(reservation);
+  }
+
+  // Check if a time slot is available
+  private async checkTimeSlotAvailability(
+    propertyId: number,
+    meetingDate: Date,
+    excludeReservationId?: string,
+  ): Promise<void> {
+    const dayOfWeek = meetingDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      throw new BadRequestException('Reservations are not available on weekends');
+    }
+
+    const hour = meetingDate.getHours();
+    const minute = meetingDate.getMinutes();
+    const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+
+    if (!this.TIME_SLOTS.includes(timeString)) {
+      throw new BadRequestException(`Invalid time slot. Available slots: ${this.TIME_SLOTS.join(", ")}`);
+    }
+
+    // Check for existing reservations at the same time
+    const existingQuery = this.reservationsRepository.createQueryBuilder('reservation')
+      .where('reservation.propertyId = :propertyId', { propertyId })
+      .andWhere('reservation.meetingDate = :meetingDate', { meetingDate })
+      .andWhere('reservation.status IN (:...statuses)', {
+        statuses: [ReservationStatus.EN_ATTENTE, ReservationStatus.CONFIRMEE],
+      });
+
+    if (excludeReservationId) {
+      existingQuery.andWhere('reservation.id != :id', { id: excludeReservationId });
+    }
+
+    const existingReservation = await existingQuery.getOne();
+
+    if (existingReservation) {
+      throw new BadRequestException('This time slot is already booked for this property');
+    }
+  }
+
+  // Get available time slots for a property on a specific date
+  async getAvailableTimeSlots(propertyId: number, date: string): Promise<string[]> {
+    const targetDate = new Date(date);
+    const dayOfWeek = targetDate.getDay();
+
+    // No slots available on weekends
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return [];
+    }
+
+    // Get all reservations for this property on this date
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const reservations = await this.reservationsRepository.find({
+      where: {
+        propertyId,
+        meetingDate: Between(startOfDay, endOfDay),
+        status: In([ReservationStatus.EN_ATTENTE, ReservationStatus.CONFIRMEE]),
+      },
+    });
+
+    // Get booked time slots
+    const bookedSlots = reservations.map(reservation => {
+      const hour = reservation.meetingDate.getHours();
+      const minute = reservation.meetingDate.getMinutes();
+      return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
+    });
+
+    // Filter out booked slots
+    return this.TIME_SLOTS.filter(slot => !bookedSlots.includes(slot));
   }
 
   // Cron job runs every hour to check for expired reservations
