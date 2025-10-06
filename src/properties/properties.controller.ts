@@ -20,17 +20,19 @@ import {
   ApiConsumes,
 } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @ApiTags('properties')
 @Controller('properties')
 export class PropertiesController {
-  constructor(private readonly propertiesService: PropertiesService) {}
+  constructor(
+    private readonly propertiesService: PropertiesService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -46,15 +48,6 @@ export class PropertiesController {
   @ApiBearerAuth()
   @UseInterceptors(
     FilesInterceptor('images', 10, {
-      storage: diskStorage({
-        destination: './public/properties',
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `property-${uniqueSuffix}${ext}`);
-        },
-      }),
       fileFilter: (req, file, callback) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return callback(new Error('Only image files are allowed!'), false);
@@ -74,9 +67,15 @@ export class PropertiesController {
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Request() req,
   ) {
-    const imageUrls = files.map(
-      (file) => `/public/properties/${file.filename}`,
+    // Upload all images to Cloudinary
+    const uploadPromises = files.map((file) =>
+      this.cloudinaryService.uploadImage(file),
     );
+    const uploadResults = await Promise.all(uploadPromises);
+
+    // Get the secure URLs from Cloudinary
+    const imageUrls = uploadResults.map((result) => result.secure_url);
+
     return this.propertiesService.addImages(id, imageUrls, req.user.id);
   }
 
