@@ -49,7 +49,8 @@ export class ReservationsController {
     @Param('propertyId') propertyId: string,
     @Param('date') date: string,
   ) {
-    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
+    // For public API, pass 'public' as userId
+    return this.reservationsService.getAvailableTimeSlots(+propertyId, date, 'public');
   }
 
   // Admin endpoints (auth required)
@@ -108,8 +109,9 @@ export class ReservationsController {
   getAvailableSlots(
     @Param('propertyId') propertyId: string,
     @Param('date') date: string,
+    @Request() req,
   ) {
-    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
+    return this.reservationsService.getAvailableTimeSlots(+propertyId, date, req.user.id);
   }
 
   @Get(':id')

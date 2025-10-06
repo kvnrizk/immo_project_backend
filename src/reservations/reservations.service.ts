@@ -202,12 +202,34 @@ export class ReservationsService {
   }
 
   // Get available time slots for a property on a specific date
-  async getAvailableTimeSlots(propertyId: number, date: string): Promise<string[]> {
+  async getAvailableTimeSlots(propertyId: number, date: string, userId?: string): Promise<string[]> {
     const targetDate = new Date(date);
-    const dayOfWeek = targetDate.getDay();
 
-    // No slots available on weekends
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    // If userId is not provided, use 'public' (for public API calls)
+    const checkUserId = userId || 'public';
+
+    // Check if date is blocked by admin
+    const isDateBlocked = await this.availabilityService.isAvailable(
+      checkUserId,
+      targetDate,
+    ).catch(() => false); // If no availability set, default to false
+
+    if (!isDateBlocked) {
+      return []; // Date is blocked, no slots available
+    }
+
+    // Get admin's available slots for this day of week
+    const adminAvailability = await this.availabilityService.findAllAvailability(checkUserId);
+    const dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayOfWeek = dayOfWeekMap[targetDate.getDay()];
+
+    // Get slots that admin has marked as available for this day
+    const adminAvailableSlots = adminAvailability
+      .filter(slot => slot.dayOfWeek === dayOfWeek && slot.isActive)
+      .map(slot => slot.startTime);
+
+    // If admin has no available slots for this day, return empty
+    if (adminAvailableSlots.length === 0) {
       return [];
     }
 
@@ -233,8 +255,10 @@ export class ReservationsService {
       return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
     });
 
-    // Filter out booked slots
-    return this.TIME_SLOTS.filter(slot => !bookedSlots.includes(slot));
+    // Return only slots that are:
+    // 1. In admin's availability
+    // 2. Not already booked
+    return adminAvailableSlots.filter(slot => !bookedSlots.includes(slot));
   }
 
   // Cron job runs every hour to check for expired reservations
