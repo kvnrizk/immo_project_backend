@@ -119,7 +119,7 @@ export class PropertiesService {
 
     // If the deleted image was the main image, set a new main image
     if (property.image === imageUrl) {
-      property.image = property.images && property.images.length > 0 ? property.images[0] : null;
+      property.image = (property.images && property.images.length > 0 ? property.images[0] : undefined) as string;
     }
 
     return await this.propertyRepository.save(property);
