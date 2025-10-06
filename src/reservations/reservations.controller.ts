@@ -94,6 +94,21 @@ export class ReservationsController {
     return this.reservationsService.update(id, updateReservationDto, req.user.id);
   }
 
+  @Get('available-slots/:propertyId/:date')
+  @ApiOperation({ summary: 'Get available time slots for a property on a specific date' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of available time slots',
+    type: [String],
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getAvailableSlots(
+    @Param('propertyId') propertyId: string,
+    @Param('date') date: string,
+  ) {
+    return this.reservationsService.getAvailableTimeSlots(+propertyId, date);
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a reservation' })
