@@ -208,30 +208,35 @@ export class ReservationsService {
     // If userId is not provided, use 'public' (for public API calls)
     const checkUserId = userId || 'public';
 
-    // Check if date is blocked by admin
-    const isDateBlocked = await this.availabilityService.isAvailable(
-      checkUserId,
-      targetDate,
-    ).catch(() => false); // If no availability set, default to false
+    // Get all unavailable dates for this user
+    const unavailableDates = await this.availabilityService.findAllUnavailableDates(checkUserId);
 
-    if (!isDateBlocked) {
-      return []; // Date is blocked, no slots available
+    // Check if this specific date is blocked
+    const dateStr = targetDate.toISOString().split('T')[0];
+    const blockedSlots = unavailableDates
+      .filter(blocked => {
+        const blockedDateStr = new Date(blocked.date).toISOString().split('T')[0];
+        return blockedDateStr === dateStr;
+      })
+      .map(blocked => {
+        // Extract time from reason if it's a specific time block
+        const match = blocked.reason?.match(/Bloqué:\s*(\d{2}:\d{2})/);
+        return match ? match[1] : null;
+      })
+      .filter(time => time !== null);
+
+    // Check if entire day is blocked (reason doesn't contain "Bloqué:")
+    const isDayBlocked = unavailableDates.some(blocked => {
+      const blockedDateStr = new Date(blocked.date).toISOString().split('T')[0];
+      return blockedDateStr === dateStr && !blocked.reason?.includes('Bloqué:');
+    });
+
+    if (isDayBlocked) {
+      return []; // Entire day is blocked
     }
 
-    // Get admin's available slots for this day of week
-    const adminAvailability = await this.availabilityService.findAllAvailability(checkUserId);
-    const dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const dayOfWeek = dayOfWeekMap[targetDate.getDay()];
-
-    // Get slots that admin has marked as available for this day
-    const adminAvailableSlots = adminAvailability
-      .filter(slot => slot.dayOfWeek === dayOfWeek && slot.isActive)
-      .map(slot => slot.startTime);
-
-    // If admin has no available slots for this day, return empty
-    if (adminAvailableSlots.length === 0) {
-      return [];
-    }
+    // Generate default time slots (9:00 to 16:00)
+    const defaultSlots = this.TIME_SLOTS;
 
     // Get all reservations for this property on this date
     const startOfDay = new Date(targetDate);
@@ -248,7 +253,7 @@ export class ReservationsService {
       },
     });
 
-    // Get booked time slots
+    // Get booked time slots from reservations
     const bookedSlots = reservations.map(reservation => {
       const hour = reservation.meetingDate.getHours();
       const minute = reservation.meetingDate.getMinutes();
@@ -256,9 +261,11 @@ export class ReservationsService {
     });
 
     // Return only slots that are:
-    // 1. In admin's availability
+    // 1. Not blocked by admin
     // 2. Not already booked
-    return adminAvailableSlots.filter(slot => !bookedSlots.includes(slot));
+    return defaultSlots.filter(slot =>
+      !blockedSlots.includes(slot) && !bookedSlots.includes(slot)
+    );
   }
 
   // Cron job runs every hour to check for expired reservations
