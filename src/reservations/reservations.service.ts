@@ -65,11 +65,10 @@ export class ReservationsService {
       meetingDate,
     );
 
-    // For public reservations, use a default system user ID or leave userId empty
+    // For public reservations, don't set userId (will be null by default)
     const reservation = this.reservationsRepository.create({
       ...createReservationDto,
       meetingDate,
-      userId: 'public', // Mark as public reservation
       status: ReservationStatus.EN_ATTENTE,
     });
 

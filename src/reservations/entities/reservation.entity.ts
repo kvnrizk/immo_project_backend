@@ -64,11 +64,11 @@ export class Reservation {
   notes: string;
 
   @Column({ nullable: true })
-  userId: string;
+  userId?: string;
 
-  @ManyToOne(() => User, { eager: false })
+  @ManyToOne(() => User, { eager: false, nullable: true })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user?: User;
 
   @CreateDateColumn()
   createdAt: Date;
