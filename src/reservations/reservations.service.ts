@@ -171,8 +171,8 @@ export class ReservationsService {
       throw new BadRequestException('Reservations are not available on weekends');
     }
 
-    const hour = meetingDate.getHours();
-    const minute = meetingDate.getMinutes();
+    const hour = meetingDate.getUTCHours();
+    const minute = meetingDate.getUTCMinutes();
     const timeString = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
 
     if (!this.TIME_SLOTS.includes(timeString)) {
