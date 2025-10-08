@@ -118,9 +118,8 @@ export class ReservationsService {
       .leftJoinAndSelect('reservation.property', 'property')
       .where('reservation.id = :id', { id });
 
-    if (userId) {
-      query.andWhere('reservation.userId = :userId', { userId });
-    }
+    // Note: We don't filter by userId for admin users
+    // Admin should be able to view ALL reservations (including public ones with userId = null)
 
     const reservation = await query.getOne();
 
