@@ -80,9 +80,8 @@ export class ReservationsService {
       .leftJoinAndSelect('reservation.property', 'property')
       .orderBy('reservation.meetingDate', 'ASC');
 
-    if (userId) {
-      query.where('reservation.userId = :userId', { userId });
-    }
+    // Note: We don't filter by userId for admin users
+    // Admin should see ALL reservations (including public ones with userId = null)
 
     if (filterDto.status) {
       query.andWhere('reservation.status = :status', { status: filterDto.status });
