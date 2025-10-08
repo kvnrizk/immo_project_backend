@@ -228,14 +228,16 @@ export class ReservationsService {
 
   // Get available time slots for a property on a specific date
   async getAvailableTimeSlots(propertyId: number, date: string, userId?: string): Promise<string[]> {
-    const targetDate = new Date(date);
+    // Parse date string and create UTC date range for the entire day
+    const dateStr = date.split('T')[0]; // Ensure we only have YYYY-MM-DD
+    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
 
     // Get all unavailable dates - always fetch ALL dates regardless of userId
     // Blocked dates should apply to everyone (public and admin)
     const unavailableDates = await this.availabilityService.findAllUnavailableDates();
 
     // Check if this specific date is blocked
-    const dateStr = targetDate.toISOString().split('T')[0];
     const blockedSlots = unavailableDates
       .filter(blocked => {
         const blockedDateStr = new Date(blocked.date).toISOString().split('T')[0];
@@ -258,16 +260,10 @@ export class ReservationsService {
       return []; // Entire day is blocked
     }
 
-    // Generate default time slots (9:00 to 16:00)
+    // Generate default time slots (9:00 to 17:00)
     const defaultSlots = this.TIME_SLOTS;
 
     // Get all reservations for this property on this date
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
     const reservations = await this.reservationsRepository.find({
       where: {
         propertyId,
@@ -278,8 +274,9 @@ export class ReservationsService {
 
     // Get booked time slots from reservations
     const bookedSlots = reservations.map(reservation => {
-      const hour = reservation.meetingDate.getHours();
-      const minute = reservation.meetingDate.getMinutes();
+      const meetingDate = new Date(reservation.meetingDate);
+      const hour = meetingDate.getUTCHours();
+      const minute = meetingDate.getUTCMinutes();
       return `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`;
     });
 
