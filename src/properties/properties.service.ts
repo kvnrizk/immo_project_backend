@@ -1,25 +1,41 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './entities/property.entity';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
+import { GeocodingService } from './geocoding.service';
 
 @Injectable()
 export class PropertiesService {
+  private readonly logger = new Logger(PropertiesService.name);
+
   constructor(
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
+    private readonly geocodingService: GeocodingService,
   ) {}
 
   async create(
     createPropertyDto: CreatePropertyDto,
     userId: string,
   ): Promise<Property> {
+    // Auto-geocode if coordinates not provided
+    let coordinates = createPropertyDto.coordinates;
+
+    if (!coordinates && createPropertyDto.location) {
+      this.logger.log(`Auto-geocoding location: ${createPropertyDto.location}`);
+      coordinates = await this.geocodingService.getCoordinates(
+        createPropertyDto.location,
+      );
+    }
+
     const property = this.propertyRepository.create({
       ...createPropertyDto,
+      coordinates,
       userId,
     });
+
     return await this.propertyRepository.save(property);
   }
 
@@ -71,6 +87,17 @@ export class PropertiesService {
 
     if (property.userId !== userId) {
       throw new NotFoundException(`Property with ID ${id} not found`);
+    }
+
+    // Auto-geocode if location changed but coordinates not provided
+    if (updatePropertyDto.location && !updatePropertyDto.coordinates) {
+      this.logger.log(`Auto-geocoding updated location: ${updatePropertyDto.location}`);
+      const coordinates = await this.geocodingService.getCoordinates(
+        updatePropertyDto.location,
+      );
+      if (coordinates) {
+        updatePropertyDto.coordinates = coordinates;
+      }
     }
 
     Object.assign(property, updatePropertyDto);

@@ -6,8 +6,20 @@ import {
   IsOptional,
   IsArray,
   Min,
+  IsObject,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export class CoordinatesDto {
+  @ApiProperty({ example: 48.8566 })
+  @IsNumber()
+  lat: number;
+
+  @ApiProperty({ example: 2.3522 })
+  @IsNumber()
+  lng: number;
+}
 
 export class CreatePropertyDto {
   @ApiProperty({ example: 'Appartement moderne centre-ville' })
@@ -58,4 +70,11 @@ export class CreatePropertyDto {
   @IsArray()
   @IsOptional()
   images?: string[];
+
+  @ApiPropertyOptional({ example: { lat: 48.8566, lng: 2.3522 } })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CoordinatesDto)
+  @IsOptional()
+  coordinates?: CoordinatesDto;
 }

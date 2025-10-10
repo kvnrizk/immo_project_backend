@@ -54,6 +54,9 @@ export class Property {
   @Column({ type: 'simple-json', nullable: true })
   unavailableDates: Array<{ date: string; reason?: string }>;
 
+  @Column({ type: 'simple-json', nullable: true })
+  coordinates: { lat: number; lng: number };
+
   @Column({ nullable: true })
   userId: string;
 
